@@ -25,12 +25,12 @@ hBrush dd ?
 hListView dd ?
 hUsernameEdit dd ? 
 hPasswordEdit dd ? 
-;hSendButton dd ?
-;hEdit dd ?
-;hNewEdit dd ?
-;ptrCurUser dd 0
-;ptrUsers dd 0
-;ptrBuffer dd 0
+hSendButton dd ?
+hEdit dd ?
+hNewEdit dd ?
+ptrCurUser dd 0
+ptrUsers dd 0
+ptrBuffer dd 0
 
 .const
 szTitle db 'Hello, World!', 0
@@ -44,11 +44,62 @@ szPassword db 'Password', 0
 szFailed db ' failed!', 0
 szEdit db 'EDIT',0
 szButton db 'BUTTON',00
-
+szClientWindow db 'ClientWindow',0
+szClient db 'LetsChat', 0
 strUsername db 128 DUP(0)
 strPassword db 128 DUP(0)
+endl BYTE "test", 0dh, 0ah, 0
 
 .code
+;DispatchLogin PROC, user: PTR BYTE, pswd: PTR BYTE
+;DispatchRegister PROC, user: PTR BYTE, pswd: PTR BYTE
+;chat_login PROTO username:PTR BYTE,password:PTR BYTE
+;chat_sign_in PROTO username:PTR BYTE,password:PTR BYTE
+
+ClientProc PROC USES ebx esi edi, hWnd:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWORD
+	ret
+ClientProc ENDP
+
+ClientMain PROC  ;窗口程序
+	local @stWndClass:WNDCLASSEX  ;定义了一个结构变量，它的类型是WNDCLASSEX，一个窗口类定义了窗口的一些主要属性，图标，光标，背景色等，这些参数不是单个传递，而是封装在WNDCLASSEX中传递的。
+	local @stMsg:MSG	;还定义了stMsg，类型是MSG，用来作消息传递的
+
+	;invoke GetModuleHandle, NULL  ;得到应用程序的句柄，把该句柄的值放在hInstance中，句柄是什么？简单点理解就是某个事物的标识，有文件句柄，窗口句柄，可以通过句柄找到对应的事物
+	mov hInstance, eax
+	invoke RtlZeroMemory, addr @stWndClass,sizeof @stWndClass  ;将stWndClass初始化全0
+
+	;这部分是初始化stWndClass结构中各字段的值，即窗口的各种属性
+	INVOKE LoadIcon, NULL, IDI_APPLICATION
+	mov @stWndClass.hIcon, eax
+	INVOKE LoadCursor, NULL, IDC_ARROW
+	mov @stWndClass.hCursor, eax
+	mov eax, hInstance
+	mov @stWndClass.hInstance, eax
+	mov @stWndClass.cbSize, sizeof WNDCLASSEX
+	mov @stWndClass.style, CS_HREDRAW or CS_VREDRAW
+	mov @stWndClass.lpfnWndProc,offset ClientProc
+	mov @stWndClass.hbrBackground, COLOR_WINDOW
+	mov @stWndClass.lpszClassName,offset szClientWindow
+	invoke RegisterClassEx, addr @stWndClass  ; 注册窗口类，注册前先填写参数WNDCLASSEX结构
+
+	invoke CreateWindowEx, WS_EX_CLIENTEDGE,\  ; 建立窗口
+			offset szClientWindow,offset szClient,\  ; szClassName和szCaptionMain是在常量段中定义的字符串常量
+			WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 960, 640, \	;szClassName是建立窗口使用的类名字符串指针
+			NULL,NULL,hInstance,NULL		; 如果改成'button'那么建立的将是一个按钮，szCaptionMain代表的则是窗口的名称，该名称会显示在标题栏中
+
+	invoke ShowWindow, hWinMain, SW_SHOWNORMAL  ; 显示窗口
+	invoke UpdateWindow, hWinMain  ; 刷新窗口客户区
+
+	.while TRUE  ;进入无限的消息获取和处理的循环
+		invoke GetMessage,addr @stMsg, 0, 0, 0  ;从消息队列中取出第一个消息，放在stMsg结构中
+		.break .if eax==0  ; 如果是退出消息，eax将会置成0，退出循环
+		invoke TranslateMessage,addr @stMsg  ;这是把基于键盘扫描码的按键信息转换成对应的ASCII码，如果消息不是通过键盘输入的，这步将跳过
+		invoke DispatchMessage,addr @stMsg  ;这条语句的作用是找到该窗口程序的窗口过程，通过该窗口过程来处理消息
+	.endw
+	ret
+ClientMain ENDP
+
+
 LogProc PROC USES ebx esi edi, hWnd:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWORD  ;窗口过程
 	local @stPs:PAINTSTRUCT
 	local @stRect:RECT
@@ -113,26 +164,30 @@ LogProc PROC USES ebx esi edi, hWnd:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWOR
 	.elseif eax == WM_COMMAND  ;点击时候产生的消息是WM_COMMAND
 		mov eax, wParam  ;其中参数wParam里存的是句柄，如果点击了一个按钮，则wParam是那个按钮的句柄
 		.if eax == 1
-			invoke GetWindowText, hUsernameEdit, addr strUsername, 128
-			invoke GetWindowText, hPasswordEdit, addr strPassword, 128
-			invoke crt_strlen, addr strUsername
-			.if eax == 0
-				jmp L1
-			.endif
-			invoke crt_strlen, addr strPassword
-			.if eax == 0
-				jmp L1
-			.endif
-			mov edi, eax
-
-			;invoke chat_login, addr strUsername, addr strPassword
-			.if eax == 1
-				invoke DestroyWindow, hWinMain
-				invoke PostQuitMessage, NULL
+			@DBPRINT FMT_STRING_ENDL, ADDR strUsername
+			@DBPRINT FMT_STRING_ENDL, ADDR endl
+			;invoke GetWindowText, hUsernameEdit, addr strUsername, 128
+       		;invoke GetWindowText, hPasswordEdit, addr strPassword, 128
+			@DBPRINT FMT_STRING_ENDL, ADDR strUsername
+			
+			;invoke crt_strlen, addr strUsername
+			;.if eax == 0
+				;jmp L1
+			;.endif
+			;invoke crt_strlen, addr strPassword
+			;.if eax == 0
+				;jmp L1
+			;.endif
+			;mov edi, eax
+;
+			;invoke DispatchLogin, addr strUsername, addr strPassword
+			;.if eax == 1
+				;invoke DestroyWindow, hWinMain
+				;invoke PostQuitMessage, NULL
 				;invoke ClientMain
-			.else
-				invoke MessageBox, hWinMain, addr szFailed, addr szTitle, MB_OK
-			.endif
+			;.else
+				;invoke MessageBox, hWinMain, addr szFailed, addr szTitle, MB_OK
+			;.endif
 		.elseif eax == 2
 			invoke GetWindowText, hUsernameEdit, addr strUsername, 128
 			invoke GetWindowText, hPasswordEdit, addr strPassword, 128
@@ -145,7 +200,7 @@ LogProc PROC USES ebx esi edi, hWnd:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWOR
 				jmp L1
 			.endif
 
-			;invoke chat_sign_in, addr strUsername, addr strPassword
+			invoke DispatchRegister, addr strUsername, addr strPassword
 			.if eax == 1
 				invoke MessageBox, hWinMain, addr szSuccess, addr szTitle, MB_OK
 			.else
