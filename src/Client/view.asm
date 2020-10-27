@@ -17,6 +17,7 @@ includelib msvcrt.lib
 include ole32.inc
 includelib ole32.lib
 
+public hWinMain
 .data
 hInstance dd ?
 hWinMain dd ?
@@ -31,9 +32,10 @@ hNewEdit dd ?
 ptrCurUser dd 0
 ptrUsers dd 0
 ptrBuffer dd 0
-
+strUsername db 128 DUP(0)
+strPassword db 128 DUP(0)
 .const
-szTitle db 'Hello, World!', 0
+szTitle db 'Message', 0
 szLogWindow db 'LogWindow',0
 szLogin db 'Log in', 0
 szLogon db 'Log on', 0
@@ -43,20 +45,16 @@ szStatic db 'STATIC',0
 szPassword db 'Password', 0
 szFailed db ' failed!', 0
 szEdit db 'EDIT',0
-szButton db 'BUTTON',00
+szButton db 'BUTTON',0
 szClientWindow db 'ClientWindow',0
 szClient db 'LetsChat', 0
-strUsername db 128 DUP(0)
-strPassword db 128 DUP(0)
-endl BYTE "test", 0dh, 0ah, 0
+
+debug BYTE "debug", 0dh, 0ah, 0
 
 .code
-;DispatchLogin PROC, user: PTR BYTE, pswd: PTR BYTE
-;DispatchRegister PROC, user: PTR BYTE, pswd: PTR BYTE
-;chat_login PROTO username:PTR BYTE,password:PTR BYTE
-;chat_sign_in PROTO username:PTR BYTE,password:PTR BYTE
 
 ClientProc PROC USES ebx esi edi, hWnd:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWORD
+	@DBPRINT FMT_STRING_ENDL, ADDR debug
 	ret
 ClientProc ENDP
 
@@ -112,8 +110,6 @@ LogProc PROC USES ebx esi edi, hWnd:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWOR
 		mov @hDc,eax
 
 		invoke GetClientRect, hWnd, addr @stRect
-
-		invoke DrawText, @hDc, addr szTitle, -1, addr @stRect, DT_SINGLELINE or DT_CENTER or DT_VCENTER  ;这里将显示szTitle里的字符串
 		invoke EndPaint, hWnd, addr @stPs
 	
 	.elseif eax == WM_CLOSE  ;窗口关闭消息
@@ -164,30 +160,27 @@ LogProc PROC USES ebx esi edi, hWnd:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWOR
 	.elseif eax == WM_COMMAND  ;点击时候产生的消息是WM_COMMAND
 		mov eax, wParam  ;其中参数wParam里存的是句柄，如果点击了一个按钮，则wParam是那个按钮的句柄
 		.if eax == 1
-			@DBPRINT FMT_STRING_ENDL, ADDR strUsername
-			@DBPRINT FMT_STRING_ENDL, ADDR endl
-			;invoke GetWindowText, hUsernameEdit, addr strUsername, 128
-       		;invoke GetWindowText, hPasswordEdit, addr strPassword, 128
-			@DBPRINT FMT_STRING_ENDL, ADDR strUsername
-			
-			;invoke crt_strlen, addr strUsername
-			;.if eax == 0
-				;jmp L1
-			;.endif
-			;invoke crt_strlen, addr strPassword
-			;.if eax == 0
-				;jmp L1
-			;.endif
-			;mov edi, eax
-;
-			;invoke DispatchLogin, addr strUsername, addr strPassword
-			;.if eax == 1
-				;invoke DestroyWindow, hWinMain
-				;invoke PostQuitMessage, NULL
-				;invoke ClientMain
-			;.else
-				;invoke MessageBox, hWinMain, addr szFailed, addr szTitle, MB_OK
-			;.endif
+			invoke GetWindowText, hUsernameEdit, addr strUsername, 128
+       		invoke GetWindowText, hPasswordEdit, addr strPassword, 128
+
+			invoke crt_strlen, addr strUsername
+			.if eax == 0
+				jmp L1
+			.endif
+			invoke crt_strlen, addr strPassword
+			.if eax == 0
+				jmp L1
+			.endif
+			mov edi, eax
+
+			invoke DispatchLogin, addr strUsername, addr strPassword
+			.if eax == 610h
+				invoke DestroyWindow, hWinMain
+				invoke PostQuitMessage, NULL
+				invoke ClientMain
+			.else
+				invoke MessageBox, hWinMain, addr szFailed, addr szTitle, MB_OK
+			.endif
 		.elseif eax == 2
 			invoke GetWindowText, hUsernameEdit, addr strUsername, 128
 			invoke GetWindowText, hPasswordEdit, addr strPassword, 128
@@ -201,7 +194,7 @@ LogProc PROC USES ebx esi edi, hWnd:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWOR
 			.endif
 
 			invoke DispatchRegister, addr strUsername, addr strPassword
-			.if eax == 1
+			.if eax == 610h
 				invoke MessageBox, hWinMain, addr szSuccess, addr szTitle, MB_OK
 			.else
 				invoke MessageBox, hWinMain, addr szFailed, addr szTitle, MB_OK
